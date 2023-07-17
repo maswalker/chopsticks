@@ -17,6 +17,7 @@ export enum BuildBlockMode {
   Batch, // one block per batch, default
   Instant, // one block per tx
   Manual, // only build when triggered
+  Automatic, // auto build periodically every 12s
 }
 
 export interface DownwardMessage {
@@ -36,6 +37,8 @@ export interface BuildBlockParams {
   transactions: HexString[]
 }
 
+type Timer = NodeJS.Timer | null
+
 export class TxPool {
   readonly #chain: Blockchain
 
@@ -51,11 +54,32 @@ export class TxPool {
   readonly event = new EventEmitter()
 
   #isBuilding = false
+  #period = 12000
+  #timer: Timer = null
 
   constructor(chain: Blockchain, inherentProvider: InherentProvider, mode: BuildBlockMode = BuildBlockMode.Batch) {
     this.#chain = chain
     this.#mode = mode
     this.#inherentProvider = inherentProvider
+    if (mode == BuildBlockMode.Automatic) {
+      this.buildBlockPeriodically()
+    }
+  }
+
+  buildBlockPeriodically() {
+    const self = this
+    self.timer = setTimeout(async () => {
+      await self.buildBlock()
+      self.timer = null
+      self.buildBlockPeriodically()
+    }, self.#period)
+  }
+
+  clearTimer() {
+    if (this.timer) {
+      clearTimeout(this.timer)
+      this.timer = null
+    }
   }
 
   get pendingExtrinsics(): HexString[] {
@@ -79,7 +103,15 @@ export class TxPool {
   }
 
   set mode(mode: BuildBlockMode) {
+    const originalMode = this.#mode
+    if (originalMode == mode) return
     this.#mode = mode
+    if (originalMode == BuildBlockMode.Automatic) {
+      this.clearTimer()
+    }
+    if (mode == BuildBlockMode.Automatic) {
+      this.buildBlockPeriodically()
+    }
   }
 
   clear() {

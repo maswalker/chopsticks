@@ -24,6 +24,7 @@ export type SetupOption = {
   db?: string
   timeout?: number
   port?: number
+  buildBlockMode?: BuildBlockMode
 }
 
 export type SetupConfig = Config & {
@@ -38,6 +39,7 @@ export const createConfig = ({
   db,
   timeout,
   port,
+  buildBlockMode,
 }: SetupOption): SetupConfig => {
   // random port if not specified
   port = port ?? Math.floor(Math.random() * 10000) + 10000
@@ -46,7 +48,7 @@ export const createConfig = ({
     port,
     block: blockNumber || blockHash,
     mockSignatureHost: true,
-    'build-block-mode': BuildBlockMode.Manual,
+    'build-block-mode': buildBlockMode ?? BuildBlockMode.Manual,
     db,
     'wasm-override': wasmOverride,
     timeout,
